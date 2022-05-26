@@ -1,0 +1,180 @@
+import re
+import datetime
+
+
+def aryears(timeItem):
+    time = list(map(int, re.findall(r'\d+', timeItem)))
+    return int(time[1])
+
+
+def ardays(timeItem):
+    time = list(map(int, re.findall(r'\d+', timeItem)))
+    return int(time[0])
+
+
+def years(timeItem):
+    time = re.findall(r'\d{4}', timeItem)
+    return int(time[0])
+
+
+def days(timeItem):
+    time = re.findall(r'\d+', timeItem)
+    return int(time[0])
+
+
+def hours(timeItem):
+    plus_hrs = 0
+    if re.search('مساءً', timeItem):
+        plus_hrs = 12
+    else:
+        pass
+    tsplit = re.split(':', timeItem)
+    hrs = re.findall(r'\d+$', tsplit[0])
+    return int(hrs[0]) + plus_hrs
+
+
+def minuits(timeItem):
+    tsplit = re.split(':', timeItem)
+    mins = re.findall(r'\d+', tsplit[1])
+    return int(mins[0])
+
+
+def months(monthItem):
+    if re.search('يناير', monthItem):
+        monn = 1
+    elif re.search('فبراير', monthItem):
+        monn = 2
+    elif re.search('مارس', monthItem):
+        monn = 3
+    elif re.search('أبريل', monthItem):
+        monn = 4
+    elif re.search('ابرايل', monthItem):
+        monn = 4
+    elif re.search('مايو', monthItem):
+        monn = 5
+    elif re.search('يونيو', monthItem):
+        monn = 6
+    elif re.search('يوليو', monthItem):
+        monn = 7
+    elif re.search('أغسطس', monthItem):
+        monn = 8
+    elif re.search('سبتمبر', monthItem):
+        monn = 9
+    elif re.search('أكتوبر', monthItem):
+        monn = 10
+    elif re.search('نوفمبر', monthItem):
+        monn = 11
+    elif re.search('ديسمبر', monthItem):
+        monn = 12
+    else:
+        monn = 13
+    return monn
+
+
+def time_type(text):
+    since = re.search('منذ', text[0])
+    backs = re.search('/', text[0])
+    dodots = re.search(':', text[0])
+    dashsdash = re.search('-', text[0])
+    endwy = re.search(r'\d{4}$', text[0])
+    arnum = '٠١٢٣٤٥٦٧٨٩'
+    today = re.search('today', text[0])
+    abu = re.search('بتوقيت أبوظبي', text[0])
+    now = datetime.datetime.utcnow() + datetime.timedelta(hours=2)
+    if since:
+        xx = since_adpt(text[0])
+    elif today:
+        xx = datetime.datetime(year=now.year, month=now.month, day=now.day, hour=6)
+    elif abu:
+        #['23 مايو 2022 - 11:32 بتوقيت أبوظبي']
+        xx = datetime.datetime(year=years(text[0]), month=months(text[0]), day=days(text[0]), hour=hours(text[0])-2,
+                               minute=minuits(text[0]))
+    elif any(ext in text[0] for ext in arnum):
+        # ['مايو ٢٥ - ٢٠٢٢']
+        xx = datetime.datetime(year=aryears(text[0]), month=months(text[0]), day=ardays(text[0]), hour=now.hour,
+                               minute=now.minute)
+    elif backs and dodots:
+        xx = datetime.datetime.strptime(text[0], " %d/%m/%Y %H:%M:%S")
+    elif dashsdash and dodots and re.search('T', text[0]):
+        # ['2022-05-24T12:39:00.000+0400']
+        plus_hrs = 2
+        dsplit = re.split('T', text[0])
+        tsplit = re.split(':', dsplit[1])
+        msplit = re.split(':', tsplit[1])
+        xx = datetime.datetime.strptime(dsplit[0], '%Y-%m-%d') + datetime.timedelta(
+            hours=int(tsplit[0]) + plus_hrs) + datetime.timedelta(minutes=int(msplit[0]))
+    elif dashsdash and dodots:
+        # [' 5-24-2022 10:0'],
+        time = re.findall(r'\d+', text[0])
+
+        xx = datetime.datetime(year=years(text[0]), month=int(time[0]), day=int(time[1]), hour=hours(text[0]),
+                               minute=minuits(text[0]))
+    elif dashsdash and endwy:
+        xx = datetime.datetime.strptime(text[0], '%d-%m-%Y') + datetime.timedelta(hours=now.hour, minutes=45)
+    elif dashsdash:
+        xx = datetime.datetime.strptime(text[0], '%Y-%m-%d') + datetime.timedelta(hours=now.hour, minutes=45)
+    elif backs:
+        xx = datetime.datetime.strptime(text[0], '%d/%m/%Y') + datetime.timedelta(hours=now.hour, minutes=45)
+    elif dodots:
+        # ['3:00']
+        xx = datetime.datetime(year=now.year, month=now.month, day=now.day,
+                               hour=hours(text[0]),
+                               minute=minuits(text[0]))
+    else:
+        # ['24 مايو 2022 22:56']
+        xx = ar_adpt(text[0])
+    return xx
+
+
+def since_adpt(timeItem):
+    dayi = re.search('يوم', timeItem)
+    hri = re.search('ساعة', timeItem)
+    mini = re.search('دقيقة', timeItem)
+    if dayi and hri:
+        hsplit = re.split('ساعة', timeItem)
+        dsplit = re.split('يوم', timeItem)
+        hr = re.findall(r'\d+', hsplit[0])
+        day = re.findall(r'\d+', dsplit[0])
+        xx = datetime.datetime.utcnow() - datetime.timedelta(days=int(day[0]), hours=int(hr[1])) + datetime.timedelta(
+            hours=2)
+    elif hri and mini:
+        hsplit = re.split('ساعة', timeItem)
+        msplit = re.split('دقيقة', timeItem)
+        mini = re.findall(r'\d+', msplit[0])
+        hr = re.findall(r'\d+', hsplit[0])
+        xx = datetime.datetime.utcnow() - datetime.timedelta(hours=int(hr[0]),
+                                                             minutes=int(mini[1])) + datetime.timedelta(hours=2)
+    elif hri:
+        hsplit = re.split('ساعة', timeItem)
+        hr = re.findall(r'\d+', hsplit[0])
+        xx = datetime.datetime.utcnow() - datetime.timedelta(hours=int(hr[0])) + datetime.timedelta(hours=2)
+    elif mini:
+        msplit = re.split('دقيقة', timeItem)
+        minu = re.findall(r'\d+', msplit[0])
+        xx = datetime.datetime.utcnow() - datetime.timedelta(minutes=int(minu[0])) + datetime.timedelta(hours=2)
+    elif dayi:
+        dsplit = re.split('يوم', timeItem)
+        day = re.findall(r'\d+', dsplit[0])
+        xx = datetime.datetime.utcnow() - datetime.timedelta(days=int(day[0])) + datetime.timedelta(hours=2)
+    else:
+        xx = 'weird'
+
+    return xx
+
+
+def ar_adpt(timeItem):
+    uslesssite = datetime.datetime.utcnow() + datetime.timedelta(hours=1, minutes=25)
+    if re.search('صباحًا', timeItem) or re.search('مساءً', timeItem):
+        xx = datetime.datetime(year=years(timeItem[0]), month=months(timeItem[0]), day=days(timeItem[0]),
+                               hour=hours(timeItem[1]),
+                               minute=minuits(timeItem[1]))
+    elif re.search(':', timeItem):
+        xx = datetime.datetime(year=years(timeItem), month=months(timeItem), day=days(timeItem),
+                               hour=hours(timeItem),
+                               minute=minuits(timeItem))
+    else:
+        xx = datetime.datetime(year=years(timeItem), month=months(timeItem), day=days(timeItem),
+                               hour=uslesssite.hour,
+                               minute=uslesssite.minute)
+
+    return xx
